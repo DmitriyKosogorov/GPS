@@ -1,8 +1,10 @@
 ﻿#include<iostream>
 #include<cmath>
 #include<string>
+#include<cstdlib>
 #include<fstream>
 #include<vector>
+#include<time.h>
 using namespace std;
 
 const double PI = 3.1415926;
@@ -88,10 +90,11 @@ string CA(int prn)
 }
 int main()
 {
+	srand(time(NULL));
 	string h = CA(1);
-	string s,s1,fin="", ca="", rand,rand1,rand2,for_sput="0000", ost="0000",normal="";
-	int n, i,j, num, file_sizec=12;
-	bool b;
+	string s,s1, rand,stroka,my_str="", sput_str="";
+	int n, i,j, num, file_sizec=12, otstup=40,a=1,b=1, res, sdvig=0;
+	//double res;
 
 //сделать свой сигнал и сигнал со спутника
 	ofstream my_file, sput_file;
@@ -102,12 +105,24 @@ int main()
 	for (i = 0; i < file_sizec; i++)
 	{
 		rand = rand_str(128);
-		rand1 = rand;
-		rand2 = rand.substr(rand1.length() - ost.length(), rand1.length());
-		for_sput = ost + rand1.erase(rand1.length()-ost.length(),rand1.length());
-		ost = rand2;
-		sput_file << h << for_sput<<endl;
-		my_file << h << rand<<endl;
+		stroka = h + rand;
+		my_file << stroka << endl;
+		if (otstup > 0)
+		{
+			if (otstup < 1151)
+			{
+				stroka.erase(0, otstup);
+				otstup = 0;
+			}
+			else
+			{
+				stroka = "";
+				otstup = otstup - 1151;
+			}
+		}
+
+		sput_file <<stroka<<endl;
+
 	}
 	my_file.close();
 
@@ -121,47 +136,97 @@ int main()
 	file >> n;
 
 //прочитать сигнал со спутника
-	for (i = 0; i < n; i++)
-	{
-		file >> s;
-		orig_file >> s1;
-		ca = s.substr(0,1023);
-		s.erase(0,1022);
-		s1.erase(0, 1022);
-		fin = fin + s;
-		normal = normal + s1;
-	}
-
+	while (orig_file >> s)
+		my_str =my_str + s;
+	while (file >> s)
+		sput_str = sput_str + s;
 //посчитать сдвиг
-	for (i = 0; i < fin.length(); i++)
+	if (sput_str.length() > 1023)
 	{
-		b = true;
-		for (j = i; j < fin.length(); j++)
+		for (i = 0; i <= my_str.length() - 1023; i++)
 		{
-			if (fin[j] != normal[j - i])
-				b = false;
-		}
-		if (b == true)
-		{
-			cout <<"Задержка = "<< i + 1 << endl;
+			res = 0;
+			for (j = i; j < i + 1023; j++)
+			{
+				if (my_str[j] == '1')
+					a = 1;
+				if (my_str[j] == '0')
+					a = -1;
+				if (sput_str[j - i] == '1')
+					b = 1;
+				if (sput_str[j - i] == '0')
+					b = -1;
+				res = res + a * b;
+				//cout <<my_str[j]<<" "<<sput_str[j-i]<<" "<< a*b<<" "<<res << endl;
+			}
+			if (res == 1023)
+				sdvig = i;
 		}
 	}
+	cout <<"sdvig: "<< sdvig << endl;
 
-//вычислсить prn по коду
-	for (i = 0; i < 33; i++)
+//Вычислить prn
+	int schet[33], maxx = 0, numm=0;
+	for (i = 0; i <= 32; i++)
+		schet[i] = 0;
+	for (j = 1; j <= 32; j++)
 	{
-		h = CA(i);
-		if (h == ca)
-			num = i;
+		h = CA(j);
+		for (i = 0; i < sput_str.length()-1023; i++)
+		{
+			s = sput_str.substr(i, i + 1023);
+			if (s == h)
+				schet[j] = schet[j] + 1;
+		}
 	}
+	for(i=1;i<=32;i++)
+		if (maxx < schet[i])
+		{
+			maxx = schet[i];
+			numm = i;
+		}
+	cout << "PRN: " << numm << endl;
 
 //вычисление координат спутника по центру, угловой скорости и времени
 	double rx = 12, ry = 12, r = 25, rv = 32, t = 12, x = 0, y = 0;
 	double grad = rv * t;
+	bool dl;
 	while (grad > 2 * PI)
 		grad = grad - 2 * PI;
 	double dop_x = r * cos(grad), dop_y = r * sin(grad);
 	x = rx + dop_x;
 	y = ry + dop_y;
-
+	cout << x << endl << y << endl;
+//Триангуляция
+	n = 3;
+	int* xs = new int[n];
+	int* ys = new int[n];
+	int* rs = new int[n];
+	for (i = 0; i < n; i++)
+	{
+		xs[i] = i;
+		ys[i] = i;
+		rs[i] = i;
+	}
+	for (i = xs[0] - r; i <= xs[0] + r; i++)
+	{
+		for (j = xs[0] - r; j <= xs[0] + r; j++)
+		{
+			if ((i - xs[0]) * (i - xs[0]) + (j - xs[0]) * (j - xs[0]) > r * r - 2 && (i - xs[0]) * (i - xs[0]) + (j - xs[0]) * (j - xs[0]) < r * r + 2)
+			{
+				dl = true;
+				for (int k = 1; k < n; k++)
+				{
+					if (!((i - xs[k]) * (i - xs[k]) + (j - xs[k]) * (j - xs[k]) > r * r - 2 && (i - xs[k]) * (i - xs[k]) + (j - xs[k]) * (j - xs[k]) < r * r + 2))
+						dl = false;
+				}
+				if (dl == true)
+					cout << "coordinates: " << i << " " << j << endl;
+			}
+		}
+	}
+	delete[] rs;
+	delete[] ys;
+	delete[] xs;
+	return 0;
 }
